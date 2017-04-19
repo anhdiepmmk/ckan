@@ -555,7 +555,8 @@ class Package(vdm.sqlalchemy.RevisionedObjectMixin,
                 'package': dictized_package,
                 # We keep the acting user name around so that actions can be
                 # properly displayed even if the user is deleted in the future.
-                'actor': actor.name
+                # Legacy tests do not include valid users :(
+                'actor': actor.name if actor else None
             }
         )
 
