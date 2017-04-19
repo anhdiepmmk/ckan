@@ -532,7 +532,8 @@ class Package(vdm.sqlalchemy.RevisionedObjectMixin,
             dictized_package = ckan.logic.get_action('package_show')({
                 'model': ckan.model,
                 'session': ckan.model.Session,
-                'for_view': True
+                'for_view': True,
+                'ignore_auth': True
             }, {
                 'id': self.id,
                 'include_tracking': True
