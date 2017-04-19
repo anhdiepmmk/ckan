@@ -5,10 +5,10 @@ from urllib import urlencode
 import mimetypes
 import cgi
 
-from ckan.common import config
 from paste.deploy.converters import asbool
 import paste.fileapp
 
+from ckan.common import config
 import ckan.logic as logic
 import ckan.lib.base as base
 import ckan.lib.maintain as maintain
@@ -341,29 +341,21 @@ class PackageController(base.BaseController):
                    'user': c.user, 'for_view': True,
                    'auth_user_obj': c.userobj}
         data_dict = {'id': id, 'include_tracking': True}
-
-        # interpret @<revision_id> or @<date> suffix
-        split = id.split('@')
-        if len(split) == 2:
-            data_dict['id'], revision_ref = split
-            if model.is_id(revision_ref):
-                context['revision_id'] = revision_ref
-            else:
-                try:
-                    date = h.date_str_to_datetime(revision_ref)
-                    context['revision_date'] = date
-                except TypeError, e:
-                    abort(400, _('Invalid revision format: %r') % e.args)
-                except ValueError, e:
-                    abort(400, _('Invalid revision format: %r') % e.args)
-        elif len(split) > 2:
-            abort(400, _('Invalid revision format: %r') %
-                  'Too many "@" symbols')
+        activity_id = request.params.get('activity_id')
 
         # check if package exists
         try:
             c.pkg_dict = get_action('package_show')(context, data_dict)
             c.pkg = context['package']
+
+            if activity_id:
+                c.pkg_dict = context['session'].query(model.Activity).get(
+                    activity_id
+                ).data['package']
+                # Don't crash on old activity records, which do not include
+                # resources or extras.
+                c.pkg_dict.setdefault('resources', [])
+                c.is_activity_archive = True
         except (NotFound, NotAuthorized):
             abort(404, _('Dataset not found'))
 
@@ -386,8 +378,12 @@ class PackageController(base.BaseController):
 
         template = self._read_template(package_type)
         try:
-            return render(template,
-                          extra_vars={'dataset_type': package_type})
+            return render(
+                template,
+                extra_vars={
+                    'dataset_type': package_type
+                }
+            )
         except ckan.lib.render.TemplateNotFound:
             msg = _("Viewing {package_type} datasets in {format} format is "
                     "not supported (template file {file} not found).".format(
